@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>لوحة تعديل الأسعار - الخان</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@500;600;800&display=swap" rel="stylesheet">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#fdf1e0;--card:#fff8ee;--ink:#2a1f4d;--gold:#f5a623;--mut:#8a7a66;--line:#ecd9b8;--danger:#d0483f;--ok:#2f8f4e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17132b;--card:#221c3d;--ink:#fbeed6;--mut:#b5a88f;--line:#372f5a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Noto Kufi Arabic',Tahoma,sans-serif}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:linear-gradient(#c98a1e,#e8a93a);color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:20px}
+header button{border:0;border-radius:10px;padding:8px 14px;font:inherit;font-weight:700;background:#fff;color:#a2622a}
+main{max-width:640px;margin:auto;padding:14px}
+.login{max-width:360px;margin:60px auto;padding:20px;background:var(--card);border-radius:16px;border:1px solid var(--line);text-align:center}
+.login input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:16px;margin:12px 0}
+.login button{width:100%;padding:12px;border:0;border-radius:10px;background:var(--gold);color:#2a1f4d;font:inherit;font-weight:800;font-size:16px}
+.err{color:var(--danger);font-size:14px;min-height:18px}
+.cat{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:14px;overflow:hidden}
+.cat h2{margin:0;padding:12px 14px;font-size:17px;background:var(--gold);color:#2a1f4d;display:flex;justify-content:space-between;align-items:center}
+.cat h2 span{font-size:13px;font-weight:500}
+.item{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
+.item input[type=text]{flex:1;min-width:0;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:14px}
+.item input[type=number]{width:64px;padding:8px 6px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:14px;text-align:center}
+.item .hide-btn{border:0;background:none;font-size:18px;padding:4px;color:var(--mut)}
+.item.hidden{opacity:.45}
+.del{border:0;background:none;color:var(--danger);font-size:18px;padding:4px}
+.addrow{padding:10px 12px;border-top:1px solid var(--line);text-align:center}
+.addrow button{border:1px dashed var(--gold);background:none;color:var(--ink);border-radius:10px;padding:8px 14px;font:inherit;font-size:14px}
+.bar{position:sticky;bottom:0;padding:12px;background:var(--bg);border-top:1px solid var(--line);display:flex;gap:10px}
+.bar button{flex:1;padding:13px;border:0;border-radius:12px;font:inherit;font-weight:800;font-size:16px}
+.save{background:var(--ok);color:#fff}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#2a1f4d;color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+.addcat{margin:10px 0;text-align:center}
+.addcat button{border:1px dashed var(--gold);background:none;color:var(--ink);border-radius:10px;padding:10px 16px;font:inherit;font-size:14px}
+</style>
+</head>
+<body>
+<div id="login" class="login">
+  <h2>لوحة تعديل أسعار الخان</h2>
+  <input id="pw" type="password" placeholder="الباسورد" autocomplete="current-password">
+  <div class="err" id="loginErr"></div>
+  <button id="loginBtn">دخول</button>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1>تعديل أسعار الخان</h1>
+    <button id="logout">خروج</button>
+  </header>
+  <main id="main"></main>
+  <div class="addcat"><button id="addCat">+ إضافة قسم جديد</button></div>
+  <div class="bar"><button class="save" id="saveBtn">حفظ كل التعديلات</button></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+let PW = sessionStorage.getItem('alkhan_pw') || '';
+let CATS = [];
+
+const $=id=>document.getElementById(id);
+
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+function render(){
+  const main=$('main');
+  main.innerHTML = CATS.map((cat,ci)=>`
+    <div class="cat" data-ci="${ci}">
+      <h2><input type="text" value="${cat.name}" data-cat-name style="background:none;border:0;color:#2a1f4d;font:inherit;font-weight:800;font-size:16px;width:65%">
+        <span><label><input type="checkbox" data-cat-two ${cat.two?'checked':''}> L/XL</label></span>
+      </h2>
+      ${cat.items.map((it,ii)=>`
+        <div class="item ${it.hidden?'hidden':''}" data-ii="${ii}">
+          <input type="text" value="${it.name}" data-name>
+          ${cat.two
+            ? `<input type="number" placeholder="L" value="${it.l===null||it.l===undefined?'':it.l}" data-l>
+               <input type="number" placeholder="XL" value="${it.xl===null||it.xl===undefined?'':it.xl}" data-xl>`
+            : `<input type="number" placeholder="سعر" value="${it.price===null||it.price===undefined?'':it.price}" data-price>`}
+          <button class="hide-btn" data-hide title="إخفاء/إظهار">${it.hidden?'🚫':'👁'}</button>
+          <button class="del" data-del title="حذف">✕</button>
+        </div>`).join('')}
+      <div class="addrow"><button data-additem>+ إضافة صنف</button></div>
+    </div>
+  `).join('');
+}
+
+function readFromDOM(){
+  document.querySelectorAll('.cat').forEach(catEl=>{
+    const ci = +catEl.dataset.ci;
+    CATS[ci].name = catEl.querySelector('[data-cat-name]').value.trim();
+    CATS[ci].two = catEl.querySelector('[data-cat-two]').checked;
+    catEl.querySelectorAll('.item').forEach((itEl,ii)=>{
+      const it = CATS[ci].items[ii];
+      it.name = itEl.querySelector('[data-name]').value.trim();
+      if(CATS[ci].two){
+        const l=itEl.querySelector('[data-l]').value;
+        const xl=itEl.querySelector('[data-xl]').value;
+        it.l = l===''?null:Number(l);
+        it.xl = xl===''?null:Number(xl);
+        delete it.price;
+      } else {
+        const p=itEl.querySelector('[data-price]').value;
+        it.price = p===''?null:Number(p);
+        delete it.l; delete it.xl;
+      }
+    });
+  });
+}
+
+document.addEventListener('click', e=>{
+  if(e.target.matches('[data-hide]')){
+    const catEl=e.target.closest('.cat'); const itEl=e.target.closest('.item');
+    const ci=+catEl.dataset.ci, ii=+itEl.dataset.ii;
+    readFromDOM();
+    CATS[ci].items[ii].hidden = !CATS[ci].items[ii].hidden;
+    render();
+  }
+  if(e.target.matches('[data-del]')){
+    const catEl=e.target.closest('.cat'); const itEl=e.target.closest('.item');
+    const ci=+catEl.dataset.ci, ii=+itEl.dataset.ii;
+    if(!confirm('تأكيد حذف الصنف؟'))return;
+    readFromDOM();
+    CATS[ci].items.splice(ii,1);
+    render();
+  }
+  if(e.target.matches('[data-addItem]') || e.target.matches('[data-addItem] *')){
+    const catEl=e.target.closest('.cat');
+    const ci=+catEl.dataset.ci;
+    readFromDOM();
+    const id='new'+Date.now();
+    CATS[ci].items.push(CATS[ci].two ? {id,name:'صنف جديد',l:0,xl:null,hidden:false} : {id,name:'صنف جديد',price:0,hidden:false});
+    render();
+  }
+  if(e.target.id==='addCat'){
+    readFromDOM();
+    CATS.push({id:'cat'+Date.now(),name:'قسم جديد',two:false,items:[]});
+    render();
+  }
+});
+
+async function doLogin(){
+  const pw = $('pw').value;
+  $('loginErr').textContent='';
+  try{
+    const r = await fetch('/api/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:pw})});
+    const d = await r.json();
+    if(d.ok){
+      PW = pw; sessionStorage.setItem('alkhan_pw', pw);
+      $('login').style.display='none'; $('app').style.display='block';
+      await loadMenu();
+    } else {
+      $('loginErr').textContent='الباسورد غلط';
+    }
+  }catch(e){
+    $('loginErr').textContent='في مشكلة في الاتصال';
+  }
+}
+
+async function loadMenu(){
+  const r = await fetch('/api/menu');
+  CATS = await r.json();
+  render();
+}
+
+async function saveAll(){
+  readFromDOM();
+  const r = await fetch('/api/menu',{method:'POST',headers:{'content-type':'application/json','x-admin-password':PW},body:JSON.stringify(CATS)});
+  if(r.ok){ toast('اتحفظ ✅'); }
+  else if(r.status===401){ toast('الباسورد غلط، ادخل تاني'); sessionStorage.removeItem('alkhan_pw'); $('app').style.display='none'; $('login').style.display='block'; }
+  else { toast('حصل خطأ، حاول تاني'); }
+}
+
+$('loginBtn').onclick = doLogin;
+$('pw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+$('saveBtn').onclick = saveAll;
+$('logout').onclick = ()=>{ sessionStorage.removeItem('alkhan_pw'); location.reload(); };
+
+if(PW){
+  fetch('/api/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:PW})})
+    .then(r=>r.json()).then(d=>{
+      if(d.ok){ $('login').style.display='none'; $('app').style.display='block'; loadMenu(); }
+    });
+}
+</script>
+</body>
+</html>

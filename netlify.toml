@@ -1,0 +1,7 @@
+[build]
+  functions = "."
+
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
